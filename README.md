@@ -15,6 +15,8 @@ This package is not currently thread-safe tested
 Refer to the test file for proper usage. I have also added some documentation for important public methods. The epochs are managed by the user and it is up to the user on whether the dropout rate is set only once or every epoch when training.
 > The Dropout rate must be set to 0 when performing validation and predictions on new data
 
+Only binary classification problems have a validator implemented in this package. Any other types of analysis must be implemented by the user for proper validation. If private variables are required to properly validate the data, submit your method implementation as a pull request.
+
 ## Issues
 
 If there are any bugs, or further functionality is requested, please make a pull request with suitable information for reproducibility.

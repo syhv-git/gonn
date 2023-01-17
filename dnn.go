@@ -3,7 +3,6 @@ package gonn
 import (
 	"gonum.org/v1/gonum/floats"
 	"log"
-	"math"
 	"math/rand"
 	"time"
 )
@@ -13,7 +12,7 @@ type DNN struct {
 
 	activation, variance ActivationFunc
 
-	loss LossFunc
+	loss, lossPrime LossFunc
 
 	hidden []*dnnLayer
 
@@ -29,7 +28,7 @@ type DNN struct {
 // activation defines the normalization function applied to the output
 //
 // variance defines the derivative of the activation function used
-func NewDNN(sizes []int, learningRate float64, activation, variance ActivationFunc) *DNN {
+func NewDNN(sizes []int, learningRate float64, activation, variance ActivationFunc, loss, lossPrime LossFunc) *DNN {
 	if len(sizes) < 2 {
 		panic("invalid slices parameter supplied to NewDNN")
 	}
@@ -39,7 +38,7 @@ func NewDNN(sizes []int, learningRate float64, activation, variance ActivationFu
 		layers[i-1] = newDropoutLayer(sizes[i-1], sizes[i])
 	}
 
-	ret := &DNN{Rate: learningRate, activation: activation, variance: variance, hidden: layers, output: output}
+	ret := &DNN{Rate: learningRate, activation: activation, variance: variance, loss: loss, lossPrime: lossPrime, hidden: layers, output: output}
 	return ret
 }
 
@@ -63,30 +62,43 @@ func (nn *DNN) SetDropout(rate []float64) {
 	}
 }
 
+func (nn *DNN) Predict(inputs []float64) []float64 {
+	for i := range nn.hidden {
+		nn.hidden[i].forward(inputs, nn.activation)
+		inputs = nn.hidden[i].outputs
+	}
+	nn.output.forward(inputs, nn.activation)
+
+	return nn.output.outputs
+}
+
 // Train performs one iteration of prediction and backpropagation learning
 func (nn *DNN) Train(inputs, targets []float64) {
 	pred := nn.Predict(inputs)
+
+	errors := make([]float64, len(nn.output.outputs))
 	for i := range pred {
-		nn.output.errors[i] = math.Abs(targets[i]-pred[i]) * nn.variance(nn.output.outputs[i])
+		errors[i] = nn.lossPrime(pred[i], targets[i]) * nn.variance(nn.output.outputs[i])
 	}
 
-	nn.output.backward(nn.Rate)
-	gradient, weight := nn.output.errors, nn.output.weights
+	nn.output.backward(errors, nn.Rate)
+	gradient, weight := errors, nn.output.weights
 	for i := len(nn.hidden) - 1; i >= 0; i-- {
+		errors = make([]float64, len(nn.hidden[i].outputs))
 		for j := range weight {
 			var sum float64
 			for k := range gradient {
 				sum += gradient[k] * weight[j][k]
 			}
-			nn.hidden[i].errors[j] = sum * nn.variance(nn.hidden[i].outputs[j]) // TODO fix errors indexing
+			errors[j] = sum * nn.variance(nn.hidden[i].outputs[j])
 		}
 
-		nn.hidden[i].backward(nn.Rate)
-		gradient, weight = nn.hidden[i].errors, nn.hidden[i].weights
+		nn.hidden[i].backward(errors, nn.Rate)
+		gradient, weight = errors, nn.hidden[i].weights
 	}
 }
 
-func (nn *DNN) Test(inputs, targets [][]float64) int {
+func (nn *DNN) ValidateBinaryClassification(inputs, targets [][]float64) int {
 	var truePred int
 
 	for i, x := range inputs {
@@ -108,16 +120,6 @@ func (nn *DNN) Test(inputs, targets [][]float64) int {
 	return truePred
 }
 
-func (nn *DNN) Predict(inputs []float64) []float64 {
-	for i := range nn.hidden {
-		nn.hidden[i].forward(inputs, nn.activation)
-		inputs = nn.hidden[i].outputs
-	}
-	nn.output.forward(inputs, nn.activation)
-
-	return nn.output.outputs
-}
-
 type dnnLayer struct {
 	inputs []float64
 
@@ -126,8 +128,6 @@ type dnnLayer struct {
 	biases []float64
 
 	outputs []float64
-
-	errors []float64
 
 	dropout float64
 
@@ -140,7 +140,6 @@ func newDropoutLayer(inputSize, outputSize int) *dnnLayer {
 		weights: make([][]float64, inputSize),
 		biases:  make([]float64, outputSize),
 		outputs: make([]float64, outputSize),
-		errors:  make([]float64, outputSize),
 		dropout: 0.0,
 		mask:    make([]bool, inputSize),
 	}
@@ -185,7 +184,7 @@ func (l *dnnLayer) forward(inputs []float64, act ActivationFunc) {
 	}
 }
 
-func (l *dnnLayer) backward(rate float64) {
+func (l *dnnLayer) backward(errors []float64, rate float64) {
 	bGrad := make([]float64, len(l.outputs))
 	wGrad := make([][]float64, len(l.weights))
 	for i := range wGrad {
@@ -194,9 +193,9 @@ func (l *dnnLayer) backward(rate float64) {
 
 	for i, x := range l.inputs {
 		for j := range l.weights[i] {
-			bGrad[j] += l.errors[j] * x
+			bGrad[j] += errors[j] * x
 			if l.mask[i] {
-				wGrad[i][j] += l.errors[j] * x
+				wGrad[i][j] += errors[j] * x
 			}
 		}
 	}

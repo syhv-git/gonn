@@ -2,46 +2,27 @@ package gonn
 
 import "math"
 
-type LossFunc func([]float64, []float64) float64
+type LossFunc func(float64, float64) float64
 
-func MSE(pred, targets []float64) float64 {
-	var mse float64
-
-	for i := range pred {
-		err := targets[i] - pred[i]
-		mse += err * err
-	}
-
-	return mse / float64(len(pred))
+func MSE(predicted, target float64) float64 {
+	err := target - predicted
+	mse := err * err / 2
+	return mse
 }
 
-func MAE(pred, targets []float64) float64 {
-	var mae float64
-
-	for i := range pred {
-		err := pred[i] - targets[i]
-		if err < 0 {
-			mae -= err
-		} else {
-			mae += err
-		}
-	}
-
-	return mae / float64(len(pred))
+func MSEPrime(predicted, target float64) float64 {
+	return target - predicted
 }
 
-func Huber(pred, targets []float64) float64 {
-	var sum float64
-	delta := 1.0
+func MAE(predicted, target float64) float64 {
+	return math.Abs(target - predicted)
+}
 
-	for i := range pred {
-		err := targets[i] - pred[i]
-		if math.Abs(err) > delta {
-			sum += delta * (math.Abs(err) - 0.5*delta)
-		} else {
-			sum += 0.5 * err * err
-		}
+func MAEPrime(predicted, target float64) float64 {
+	err := target - predicted
+	if err == 0 {
+		return 0
 	}
 
-	return sum
+	return err / math.Abs(err)
 }
