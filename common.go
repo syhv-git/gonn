@@ -7,8 +7,8 @@ import (
 	"strconv"
 )
 
-// LoadCSVData loads training data from source and returns two float64 matrices
-// containing the training data and the target outcome.
+// LoadCSVData loads training data from source and returns two float64 matrices containing the training data and the target outcome.
+// Ensure the CSV records do not contain commas (i.e. 10,000 should be 10000) nor quotation mark delimiters
 //
 // inputLen determines how many fields contain the input data.
 //
