@@ -6,7 +6,7 @@ This package currently contains a generalized dropout feed-forward neural networ
 
 To use this package, run the following command in the directory containing your `go.mod` file:
 
-```go get -ut github.com/syhv-git/gonn```
+```go get -t -u github.com/syhv-git/gonn```
 
 This package is not currently thread-safe tested
 
