@@ -60,6 +60,12 @@ func (nn *DNN) SetDropout(rate []float64) {
 			nn.hidden[i].setDropout(rate[0])
 		}
 	}
+
+	if len(rate) > 1 {
+		nn.output.setDropout(rate[len(rate)-1])
+	} else {
+		nn.output.setDropout(rate[0])
+	}
 }
 
 func (nn *DNN) Predict(inputs []float64) []float64 {
