@@ -46,12 +46,12 @@ func LoadCSVData(src string, inputLen, targetLen int, names bool) ([][]float64, 
 			}
 
 			if n < inputLen {
-				inputs[k][j] = d
-				j++
+				inputs[k][i] = d
+				i++
 				continue
 			}
-			targets[k][i] = d
-			i++
+			targets[k][j] = d
+			j++
 		}
 	}
 
