@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // LoadCSVData loads training data from source and returns two float64 matrices containing the training data and the target outcome.
-// Ensure the CSV fields do not contain commas (i.e. 10,000 should be 10000)
 //
 // inputLen determines how many fields contain the input data.
 //
@@ -40,6 +40,7 @@ func LoadCSVData(src string, inputLen, targetLen int, names bool) ([][]float64, 
 		i, j := 0, 0
 
 		for n, y := range x {
+			y = strings.Replace(y, ",", "", -1)
 			d, err := strconv.ParseFloat(y, 64)
 			if err != nil {
 				log.Fatal(err.Error())
