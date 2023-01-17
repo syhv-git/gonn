@@ -1,4 +1,4 @@
-module gonn
+module github.com/syhv-git/gonn
 
 go 1.19
 

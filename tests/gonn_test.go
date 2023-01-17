@@ -1,7 +1,7 @@
 package tests
 
 import (
-	gonn "gonn"
+	gonn "github.com/syhv-git/gonn"
 	"log"
 	"testing"
 )
