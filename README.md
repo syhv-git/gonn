@@ -1,6 +1,6 @@
 # gonn
 
-This package currently contains a generalized dropout neural network implementation. Any future neural network models I create will be added to this library. The code was originally generated through OpenAI's ChatGPT, which was further debugged and enriched by my own analysis.
+This package currently contains a generalized dropout feed-forward neural network implementation. Any future neural network models I create will be added to this library. The code was originally generated through OpenAI's ChatGPT, which was further debugged and enriched by my own analysis.
 
 ## Installation
 
