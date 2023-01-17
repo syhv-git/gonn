@@ -191,28 +191,12 @@ func (l *dnnLayer) forward(inputs []float64, act ActivationFunc) {
 }
 
 func (l *dnnLayer) backward(errors []float64, rate float64) {
-	bGrad := make([]float64, len(l.outputs))
-	wGrad := make([][]float64, len(l.weights))
-	for i := range wGrad {
-		wGrad[i] = make([]float64, len(l.weights[i]))
-	}
-
 	for i, x := range l.inputs {
 		for j := range l.weights[i] {
-			bGrad[j] += errors[j] * x
+			l.biases[j] -= errors[j] * x * rate
 			if l.mask[i] {
-				wGrad[i][j] += errors[j] * x
+				l.weights[i][j] -= errors[j] * x * rate
 			}
-		}
-	}
-
-	for i, bg := range bGrad {
-		l.biases[i] -= rate * bg
-	}
-
-	for i, wg := range wGrad {
-		for j, w := range wg {
-			l.weights[i][j] -= rate * w / (1 - l.dropout)
 		}
 	}
 }
