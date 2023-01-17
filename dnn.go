@@ -170,9 +170,15 @@ func (l *dnnLayer) init() {
 
 func (l *dnnLayer) setDropout(rate float64) {
 	l.dropout = rate
-
+	c := 0
 	for i := range l.mask {
 		l.mask[i] = rand.Float64() >= l.dropout
+		if l.mask[i] {
+			c++
+		}
+	}
+	if c == 0 {
+		l.mask[0] = true
 	}
 }
 
