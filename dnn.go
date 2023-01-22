@@ -60,8 +60,8 @@ func (nn *DNN) Train(inputs, targets []float64) {
 	pred := nn.Predict(inputs)
 
 	errors := make([]float64, len(nn.output.outputs))
-	for i := range pred {
-		errors[i] = nn.lossPrime(pred[i], targets[i]) * nn.outputVariance(nn.output.outputs[i])
+	for i, p := range pred {
+		errors[i] = nn.lossPrime(p, targets[i]) * nn.outputVariance(p)
 	}
 
 	nn.output.backward(errors, nn.Rate)

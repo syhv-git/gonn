@@ -8,6 +8,29 @@ import (
 	"strings"
 )
 
+func NewFFNN(sizes []int, learningRate float64, hiddenActivation, hiddenVariance, outputActivation, outputVariance ActivationFunc, loss, lossPrime LossFunc) *FFNN {
+	if len(sizes) < 2 {
+		panic("invalid slices parameter supplied to NewDNN")
+	}
+
+	layers := make([]*ffnnLayer, len(sizes)-2)
+	for i := 1; i <= len(layers); i++ {
+		layers[i-1] = newFFNNLayer(sizes[i-1], sizes[i])
+	}
+
+	return &FFNN{
+		Rate:             learningRate,
+		hiddenActivation: hiddenActivation,
+		hiddenVariance:   hiddenVariance,
+		outputActivation: outputActivation,
+		outputVariance:   outputVariance,
+		loss:             loss,
+		lossPrime:        lossPrime,
+		hidden:           layers,
+		output:           newFFNNLayer(sizes[len(sizes)-2], sizes[len(sizes)-1]),
+	}
+}
+
 // NewDNN creates a new Dropout Multilayer Perceptron
 //
 // sizes contains the sizes of each layer in the network

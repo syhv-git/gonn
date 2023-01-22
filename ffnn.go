@@ -1,6 +1,7 @@
 package gonn
 
 import (
+	"gonum.org/v1/gonum/floats"
 	"math/rand"
 	"time"
 )
@@ -26,6 +27,52 @@ func (nn *FFNN) Predict(inputs []float64) []float64 {
 	nn.output.forward(inputs, nn.outputActivation)
 
 	return nn.output.outputs
+}
+
+func (nn *FFNN) Train(inputs, targets []float64) {
+	pred := nn.Predict(inputs)
+
+	errors := make([]float64, len(nn.output.outputs))
+	for i, p := range pred {
+		errors[i] = nn.lossPrime(p, targets[i]) * nn.outputVariance(p)
+	}
+
+	nn.output.backward(errors, nn.Rate)
+	gradient, weight := errors, nn.output.weights
+	for i := len(nn.hidden) - 1; i >= 0; i-- {
+		errors = make([]float64, len(nn.hidden[i].outputs))
+		for j := range weight {
+			var sum float64
+			for k := range gradient {
+				sum += gradient[k] * weight[j][k]
+			}
+			errors[j] = sum * nn.hiddenVariance(nn.hidden[i].outputs[j])
+		}
+		nn.hidden[i].backward(errors, nn.Rate)
+		gradient, weight = errors, nn.hidden[i].weights
+	}
+}
+
+func (nn *FFNN) ValidateBinaryClassification(inputs, targets [][]float64) int {
+	var truePred int
+
+	for i, x := range inputs {
+		var target int
+		pred := nn.Predict(x)
+
+		for j, y := range targets[i] {
+			if y == 1.0 {
+				target = j
+				break
+			}
+		}
+
+		if pred[target] == floats.Max(pred) {
+			truePred++
+		}
+	}
+
+	return truePred
 }
 
 type ffnnLayer struct {
