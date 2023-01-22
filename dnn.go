@@ -4,42 +4,19 @@ import (
 	"gonum.org/v1/gonum/floats"
 	"log"
 	"math/rand"
-	"time"
 )
 
 type DNN struct {
 	Rate float64
 
-	activation, variance ActivationFunc
+	hiddenActivation, hiddenVariance ActivationFunc
+	outputActivation, outputVariance ActivationFunc
 
 	loss, lossPrime LossFunc
 
 	hidden []*dnnLayer
 
 	output *dnnLayer
-}
-
-// NewDNN creates a new Dropout Multilayer Perceptron
-//
-// sizes contains the sizes of each layer in the network
-//
-// learningRate is the scaling hyperparameter for gradient descent
-//
-// activation defines the normalization function applied to the output
-//
-// variance defines the derivative of the activation function used
-func NewDNN(sizes []int, learningRate float64, activation, variance ActivationFunc, loss, lossPrime LossFunc) *DNN {
-	if len(sizes) < 2 {
-		panic("invalid slices parameter supplied to NewDNN")
-	}
-
-	layers, output := make([]*dnnLayer, len(sizes)-2), newDropoutLayer(sizes[len(sizes)-2], sizes[len(sizes)-1])
-	for i := 1; i <= len(layers); i++ {
-		layers[i-1] = newDropoutLayer(sizes[i-1], sizes[i])
-	}
-
-	ret := &DNN{Rate: learningRate, activation: activation, variance: variance, loss: loss, lossPrime: lossPrime, hidden: layers, output: output}
-	return ret
 }
 
 // SetDropout sets the dropout rate for the network.
@@ -70,10 +47,10 @@ func (nn *DNN) SetDropout(rate []float64) {
 
 func (nn *DNN) Predict(inputs []float64) []float64 {
 	for i := range nn.hidden {
-		nn.hidden[i].forward(inputs, nn.activation)
+		nn.hidden[i].forward(inputs, nn.hiddenActivation)
 		inputs = nn.hidden[i].outputs
 	}
-	nn.output.forward(inputs, nn.activation)
+	nn.output.forward(inputs, nn.outputActivation)
 
 	return nn.output.outputs
 }
@@ -84,23 +61,27 @@ func (nn *DNN) Train(inputs, targets []float64) {
 
 	errors := make([]float64, len(nn.output.outputs))
 	for i := range pred {
-		errors[i] = nn.lossPrime(pred[i], targets[i]) * nn.variance(nn.output.outputs[i])
+		errors[i] = nn.lossPrime(pred[i], targets[i]) * nn.outputVariance(nn.output.outputs[i])
 	}
 
 	nn.output.backward(errors, nn.Rate)
-	gradient, weight := errors, nn.output.weights
+	gradient, weight, mask, drop := errors, nn.output.weights, nn.output.mask, nn.output.dropout
 	for i := len(nn.hidden) - 1; i >= 0; i-- {
 		errors = make([]float64, len(nn.hidden[i].outputs))
 		for j := range weight {
-			var sum float64
-			for k := range gradient {
-				sum += gradient[k] * weight[j][k]
+			if mask[j] {
+				var sum float64
+				for k := range gradient {
+					sum += gradient[k] * weight[j][k]
+				}
+				errors[j] = sum * nn.hiddenVariance(nn.hidden[i].outputs[j]) / (1 - drop)
+			} else {
+				errors[j] = 0
 			}
-			errors[j] = sum * nn.variance(nn.hidden[i].outputs[j])
 		}
 
 		nn.hidden[i].backward(errors, nn.Rate)
-		gradient, weight = errors, nn.hidden[i].weights
+		gradient, weight, mask, drop = errors, nn.hidden[i].weights, nn.hidden[i].mask, nn.hidden[i].dropout
 	}
 }
 
@@ -127,13 +108,7 @@ func (nn *DNN) ValidateBinaryClassification(inputs, targets [][]float64) int {
 }
 
 type dnnLayer struct {
-	inputs []float64
-
-	weights [][]float64
-
-	biases []float64
-
-	outputs []float64
+	*ffnnLayer
 
 	dropout float64
 
@@ -141,30 +116,10 @@ type dnnLayer struct {
 }
 
 func newDropoutLayer(inputSize, outputSize int) *dnnLayer {
-	layer := &dnnLayer{
-		inputs:  make([]float64, inputSize),
-		weights: make([][]float64, inputSize),
-		biases:  make([]float64, outputSize),
-		outputs: make([]float64, outputSize),
-		dropout: 0.0,
-		mask:    make([]bool, inputSize),
-	}
-
-	for i := range layer.weights {
-		layer.weights[i] = make([]float64, outputSize)
-	}
-	layer.init()
-
-	return layer
-}
-
-func (l *dnnLayer) init() {
-	rand.Seed(time.Now().UnixNano())
-	for i := range l.weights {
-		for j := range l.weights[i] {
-			l.weights[i][j] = rand.NormFloat64()
-			l.biases[j] = rand.NormFloat64()
-		}
+	return &dnnLayer{
+		ffnnLayer: newFFNNLayer(inputSize, outputSize),
+		dropout:   0.0,
+		mask:      make([]bool, inputSize),
 	}
 }
 
@@ -189,18 +144,18 @@ func (l *dnnLayer) forward(inputs []float64, act ActivationFunc) {
 		sum := l.biases[i]
 		for j := range l.inputs {
 			if l.mask[j] {
-				sum += l.inputs[j] * l.weights[j][i]
+				sum += l.inputs[j] * l.weights[j][i] / (1 - l.dropout)
 			}
 		}
-		l.outputs[i] = act(sum) / (1 - l.dropout)
+		l.outputs[i] = act(sum)
 	}
 }
 
 func (l *dnnLayer) backward(errors []float64, rate float64) {
 	for i, x := range l.inputs {
 		for j := range l.weights[i] {
-			l.biases[j] -= errors[j] * x * rate
 			if l.mask[i] {
+				l.biases[j] -= errors[j] * rate
 				l.weights[i][j] -= errors[j] * x * rate
 			}
 		}
